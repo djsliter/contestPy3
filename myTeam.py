@@ -12,6 +12,7 @@
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
 
+import sys
 from captureAgents import CaptureAgent
 import random, time, util
 import distanceCalculator
@@ -66,8 +67,10 @@ class ReflexCaptureAgent(CaptureAgent):
     # You can profile your evaluation time by uncommenting these lines
     # start = time.time()
     values = [self.evaluate(gameState, a) for a in actions]
-    # if self.index == 1:
-    #   print(values, file=sys.stderr)
+    
+    # Observe each action our agent takes
+    if self.index == 1:
+      print(values, file=sys.stderr)
       # print(self.getPreviousObservation(), file=sys.stderr)
 
     # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
