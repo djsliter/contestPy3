@@ -14,6 +14,7 @@
 
 from captureAgents import CaptureAgent
 import random, time, util
+import distanceCalculator
 from game import Directions
 import game
 from util import nearestPoint
@@ -23,7 +24,7 @@ from util import nearestPoint
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'ReflexCaptureAgent', second = 'ReflexCaptureAgent'):
+               first = 'CarefulOffenseAgent', second = 'CarefulOffenseAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -55,7 +56,7 @@ class ReflexCaptureAgent(CaptureAgent):
   def registerInitialState(self, gameState):
     self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
-
+  
   def chooseAction(self, gameState):
     """
     Picks among the actions with the highest Q(s,a).
@@ -70,9 +71,12 @@ class ReflexCaptureAgent(CaptureAgent):
       # print(self.getPreviousObservation(), file=sys.stderr)
 
     # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
-
+    
+    # Find the max rated action
     maxValue = max(values)
+    # Generate a list of all actions that match the maxValue
     bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+    
     # if self.index == 1:
     #   print(bestActions, file=sys.stderr)
 
@@ -104,10 +108,13 @@ class ReflexCaptureAgent(CaptureAgent):
     """
     Finds the next successor which is a grid position (location tuple).
     """
+    # Store the future gamestate after specified action is taken
     successor = gameState.generateSuccessor(self.index, action)
+    # New pos of agent in future gamestate
     pos = successor.getAgentState(self.index).getPosition()
+    
     if pos != nearestPoint(pos):
-      # Only half a grid position was covered
+      # Only half a grid position was covered, so advance state again?
       return successor.generateSuccessor(self.index, action)
     else:
       return successor
@@ -116,7 +123,7 @@ class ReflexCaptureAgent(CaptureAgent):
     """
     Computes a linear combination of features and feature weights
     """
-
+    # Counter of game score for each successor gamestate after action
     features = self.getFeatures(gameState, action)
     weights = self.getWeights(gameState, action)
 
@@ -126,14 +133,18 @@ class ReflexCaptureAgent(CaptureAgent):
 
     return features * weights
 
+  # Edit this to change behavior by changing what determines a feature score
   def getFeatures(self, gameState, action):
     """
     Returns a counter of features for the state
     """
+    # Dictionary with key: int pairs
     features = util.Counter()
+    # Look at next gamestate
     successor = self.getSuccessor(gameState, action)
+    # Calculate the score differential for that gamestate and store
     features['successorScore'] = self.getScore(successor)
-
+    # Returns how much team is winning or losing after action
     return features
 
   def getWeights(self, gameState, action):
@@ -141,4 +152,61 @@ class ReflexCaptureAgent(CaptureAgent):
     Normally, weights do not depend on the gamestate.  They can be either
     a counter or a dictionary.
     """
+    # Used to weight the value of features in evaluation function
     return {'successorScore': 1.0}
+
+class CarefulOffenseAgent(ReflexCaptureAgent):
+  
+  # Create a rating for features of the gamestate, like score, food dist, flee
+  def getFeatures(self, gameState, action):
+    # Keep track of feature values
+    features = util.Counter()
+    successor = self.getSuccessor(gameState, action)
+
+    # State of agent after action is taken
+    myState = successor.getAgentState(self.index)
+    # Agent position after action
+    myPos = myState.getPosition()
+
+    # List of edible food
+    foodList = self.getFood(successor).asList() 
+    # Set a feature, successorScore, as the negation of remaining food   
+    features['successorScore'] = -len(foodList)
+
+    # Compute distance to the nearest food
+    if len(foodList) > 0: # This should always be True,  but better safe than sorry
+      # Store the distance of the closest food
+      minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+      # Add this distance as a feature
+      features['distanceToFood'] = minDistance
+
+    # Determine if the enemy is closer to you than they were last time
+    # and you are in their territory.
+    # Note: This behavior isn't perfect, and can force Pacman to cower 
+    # in a corner.  I leave it up to you to improve this behavior.
+    
+    close_dist = 9999.0
+    # If our agent is in Pacman form
+    if self.index == 1 and gameState.getAgentState(self.index).isPacman:
+      # Generate a list of enemies future states after action is taken
+      opp_fut_state = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+      # Grab the enemies that are currently ghosts and are alive
+      chasers = [p for p in opp_fut_state if p.getPosition() != None and not p.isPacman]
+      # If there are potential enemy chasers
+      if len(chasers) > 0:
+        # Find the closest distance chaser to the agent
+        close_dist = min([float(self.getMazeDistance(myPos, c.getPosition())) for c in chasers])
+    # Store the feature under fleeEnemy as the inverse of close_dist
+    features['fleeEnemy'] = 1.0/close_dist
+
+    return features
+  
+  # Change how different features should impact chosen actions
+  def getWeights(self, gameState, action):
+    # Score is weighted high, food distance middle, and fleeEnemy high.
+    # Negatives mean that actions that bring an agent higher values for those items 
+    # are weighted less, decreasing likelihood of choosing said action. For ex,
+    # actions that increase fleeEnemy mean we are getting closer to an enemy,
+    # so we shouldn't choose that action as often. When total food is running low,
+    # agent is less likely to choose food-pursuing actions.
+    return {'successorScore': 90, 'distanceToFood': -2, 'fleeEnemy': -80.0}
