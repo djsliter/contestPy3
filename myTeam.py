@@ -56,6 +56,8 @@ class ReflexCaptureAgent(CaptureAgent):
  
   def registerInitialState(self, gameState):
     self.start = gameState.getAgentPosition(self.index)
+    # Use to track agent action history
+    self.actionTracker = ["STOP"]
     CaptureAgent.registerInitialState(self, gameState)
   
   def chooseAction(self, gameState):
@@ -104,8 +106,15 @@ class ReflexCaptureAgent(CaptureAgent):
           bestDist = dist
       # Return action that gets agent closest to its start po
       return bestAction
-    # Choose an action randomly from amongst the best rated actions
-    return random.choice(bestActions)
+    
+    bestAction = random.choice(bestActions)
+    # Check if action is stop, if so choose something else randomly
+    # Rough solution to the cowering problem
+    if bestAction == 'Stop':
+      actions.remove('Stop')
+      bestAction = random.choice(actions)
+    
+    return bestAction
 
   def getSuccessor(self, gameState, action):
     """
@@ -197,7 +206,7 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
       # Generate a list of enemies future states after action is taken
       opp_fut_state = [successor.getAgentState(i) for i in self.getOpponents(successor)]
       
-      
+
       # print("TEST-------------------")
       # print(gameState.getLegalActions(([i for i in self.getOpponents(successor)][0])))
 
@@ -215,9 +224,10 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
       # If closer, decrease feature
     # if( enemy_dist < (distToHome/2)):
     #   features['fleeEnemy'] = 1.0/enemy_dist
+    # NOTE: enemy state is hidden from us if they are outside agent "sight" range, line 290 in capture.py
     
     features['fleeEnemy'] = 1.0/enemy_dist
-
+    
     return features
   
   # Change how different features should impact chosen actions
