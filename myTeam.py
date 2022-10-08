@@ -16,13 +16,14 @@ from captureAgents import CaptureAgent
 import random, time, util
 from game import Directions
 import game
+from util import nearestPoint
 
 #################
 # Team creation #
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'DummyAgent', second = 'DummyAgent'):
+               first = 'ReflexCaptureAgent', second = 'ReflexCaptureAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -45,48 +46,99 @@ def createTeam(firstIndex, secondIndex, isRed,
 # Agents #
 ##########
 
-class DummyAgent(CaptureAgent):
+# Base reflex agent logic from provided code, subclass it
+class ReflexCaptureAgent(CaptureAgent):
   """
-  A Dummy agent to serve as an example of the necessary agent structure.
-  You should look at baselineTeam.py for more details about how to
-  create an agent as this is the bare minimum.
+  A base class for reflex agents that chooses score-maximizing actions
   """
-
+ 
   def registerInitialState(self, gameState):
-    """
-    This method handles the initial setup of the
-    agent to populate useful fields (such as what team
-    we're on).
-
-    A distanceCalculator instance caches the maze distances
-    between each pair of positions, so your agents can use:
-    self.distancer.getDistance(p1, p2)
-
-    IMPORTANT: This method may run for at most 15 seconds.
-    """
-
-    '''
-    Make sure you do not delete the following line. If you would like to
-    use Manhattan distances instead of maze distances in order to save
-    on initialization time, please take a look at
-    CaptureAgent.registerInitialState in captureAgents.py.
-    '''
+    self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
-
-    '''
-    Your initialization code goes here, if you need any.
-    '''
-
 
   def chooseAction(self, gameState):
     """
-    Picks among actions randomly.
+    Picks among the actions with the highest Q(s,a).
     """
     actions = gameState.getLegalActions(self.index)
 
-    '''
-    You should change this in your own agent.
-    '''
+    # You can profile your evaluation time by uncommenting these lines
+    # start = time.time()
+    values = [self.evaluate(gameState, a) for a in actions]
+    # if self.index == 1:
+    #   print(values, file=sys.stderr)
+      # print(self.getPreviousObservation(), file=sys.stderr)
 
-    return random.choice(actions)
+    # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
 
+    maxValue = max(values)
+    bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+    # if self.index == 1:
+    #   print(bestActions, file=sys.stderr)
+
+    foodLeft = len(self.getFood(gameState).asList())
+    # If total food left to collect is less than 2 or agent is carrying 5+
+    if foodLeft <= 2 or gameState.getAgentState(self.index).numCarrying > 5:
+      # Initialize for use in choosing next action
+      bestDist = 9999
+      # Loop through each legal action for the agent
+      for action in actions:
+        # Look at the future gamestate for said action
+        successor = self.getSuccessor(gameState, action)
+        # Grab the agent position for that future state
+        pos2 = successor.getAgentPosition(self.index)
+        # Find the distance between that pos and agent start pos
+        dist = self.getMazeDistance(self.start,pos2)
+        # Check if the action makes agent closer to it's start pos
+        if dist < bestDist:
+          # Then this is the best action so far to get to safety
+          bestAction = action
+          # Use for next action comparison
+          bestDist = dist
+      # Return action that gets agent closest to its start po
+      return bestAction
+    # Choose an action randomly from amongst the best rated actions
+    return random.choice(bestActions)
+
+  def getSuccessor(self, gameState, action):
+    """
+    Finds the next successor which is a grid position (location tuple).
+    """
+    successor = gameState.generateSuccessor(self.index, action)
+    pos = successor.getAgentState(self.index).getPosition()
+    if pos != nearestPoint(pos):
+      # Only half a grid position was covered
+      return successor.generateSuccessor(self.index, action)
+    else:
+      return successor
+
+  def evaluate(self, gameState, action):
+    """
+    Computes a linear combination of features and feature weights
+    """
+
+    features = self.getFeatures(gameState, action)
+    weights = self.getWeights(gameState, action)
+
+    # if self.index == 1:
+    #   print(str(features) + str(weights), file=sys.stderr)
+    #   # print(gameState.getAgentState(self.index)) # Print out a text representation of the world.
+
+    return features * weights
+
+  def getFeatures(self, gameState, action):
+    """
+    Returns a counter of features for the state
+    """
+    features = util.Counter()
+    successor = self.getSuccessor(gameState, action)
+    features['successorScore'] = self.getScore(successor)
+
+    return features
+
+  def getWeights(self, gameState, action):
+    """
+    Normally, weights do not depend on the gamestate.  They can be either
+    a counter or a dictionary.
+    """
+    return {'successorScore': 1.0}
