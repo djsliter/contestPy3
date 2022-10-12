@@ -1080,6 +1080,15 @@ def runGames( layouts, agents, display, length, numGames, record, numTraining, r
     print ('Red Win Rate:  %d/%d (%.2f)' % ([s > 0 for s in scores].count(True), len(scores), redWinRate))
     print ('Blue Win Rate: %d/%d (%.2f)' % ([s < 0 for s in scores].count(True), len(scores), blueWinRate))
     print ('Record:       ', ', '.join([('Blue', 'Tie', 'Red')[max(0, min(2, 1 + s))] for s in scores]))
+    with open('scores', 'w') as f:
+        scoresInOrder = scores.copy()
+        scoresInOrder.sort()
+        print('Median Score:', scoresInOrder[16], file=f)
+        print('Average Score:', sum(scores) / float(len(scores)), file=f)
+        print('Scores:       ', ', '.join([str(score) for score in scores]), file=f)
+        print('Red Win Rate:  %d/%d (%.2f)' % ([s > 0 for s in scores].count(True), len(scores), redWinRate), file=f)
+        print('Blue Win Rate: %d/%d (%.2f)' % ([s < 0 for s in scores].count(True), len(scores), blueWinRate), file=f)
+        print('Record:       ', ', '.join([('Blue', 'Tie', 'Red')[max(0, min(2, 1 + s))] for s in scores]), file=f)
   return games
 
 def save_score(game):
@@ -1101,7 +1110,7 @@ if __name__ == '__main__':
   options = readCommand( sys.argv[1:] ) # Get game components based on input
   games = runGames(**options)
 
-  save_score(games[0])
+  #save_score(games[0])
   print('\nTotal Time Game: %s'% round(time.time() - start_time, 0))
   # import profile
   # profile.run('runGames( **options )', 'profile')
