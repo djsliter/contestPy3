@@ -202,7 +202,7 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
 
     enemy_dist = 9999.0
     # If our agent is in Pacman form
-    if self.index == 1 and gameState.getAgentState(self.index).isPacman:
+    if gameState.getAgentState(self.index).isPacman:
       # Generate a list of enemies future states after action is taken
       opp_fut_state = [successor.getAgentState(i) for i in self.getOpponents(successor)]
       
