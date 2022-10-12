@@ -59,7 +59,9 @@ class ReflexCaptureAgent(CaptureAgent):
     # Use to track agent action history
     self.actionTracker = ["STOP"]
     CaptureAgent.registerInitialState(self, gameState)
-  
+    # Use for keeping track of which coordinates are points of interest
+    self.isRed = self.start[0] < 25
+
   def chooseAction(self, gameState):
     """
     Picks among the actions with the highest Q(s,a).
