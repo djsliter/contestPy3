@@ -238,7 +238,7 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
     # actions that increase fleeEnemy mean we are getting closer to an enemy,
     # so we shouldn't choose that action as often. When total food is running low,
     # agent is less likely to choose food-pursuing actions.
-    return {'successorScore': 80, 'distanceToFood': -1, 'fleeEnemy': -115.0}
+    return {'successorScore': 100, 'distanceToFood': -1, 'fleeEnemy': -100.0}
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
@@ -267,7 +267,15 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     if len(invaders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
       features['invaderDistance'] = min(dists)
-
+    else:
+      if self.isRed:
+        pointsOfInterest = [(10, 3), (12, 6), (12, 12)]
+        distsFromPoints = [self.getMazeDistance(myPos, p) for p in pointsOfInterest]
+        features['stayNearPOI'] = min(distsFromPoints)
+      else:
+        pointsOfInterest = [(20, 11), (18, 7), (18, 3)]
+        distsFromPoints = [self.getMazeDistance(myPos, p) for p in pointsOfInterest]
+        features['stayNearPOI'] = min(distsFromPoints)
     if action == Directions.STOP: features['stop'] = 1
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
@@ -275,4 +283,4 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
+    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2, 'stayNearPOI': -2}
