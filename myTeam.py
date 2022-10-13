@@ -88,8 +88,8 @@ class ReflexCaptureAgent(CaptureAgent):
     #   print(bestActions, file=sys.stderr)
 
     foodLeft = len(self.getFood(gameState).asList())
-    # If total food left to collect is less than 2 or agent is carrying 5+
-    if foodLeft <= 2 or gameState.getAgentState(self.index).numCarrying > 5:
+    # If total food left to collect is less than 2 or agent is carrying 2+
+    if foodLeft <= 2 or gameState.getAgentState(self.index).numCarrying > 2:
       # Initialize for use in choosing next action
       bestDist = 9999
       # Loop through each legal action for the agent
@@ -203,6 +203,7 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
     distToHome = self.getMazeDistance(self.start, gameState.getAgentState(self.index).getPosition())
 
     enemy_dist = 9999.0
+    entrance_dist = 9999.0
     # If our agent is in Pacman form
     if gameState.getAgentState(self.index).isPacman:
       # Generate a list of enemies future states after action is taken
@@ -227,7 +228,15 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
     # if( enemy_dist < (distToHome/2)):
     #   features['fleeEnemy'] = 1.0/enemy_dist
     # NOTE: enemy state is hidden from us if they are outside agent "sight" range, line 290 in capture.py
-    
+    else:
+      opp_fut_state = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+      chasers = [p for p in opp_fut_state if p.getPosition() != None and not p.isPacman]
+      if len(chasers) > 0:
+        entrances = [(16, 3), (16, 7), (16, 13)]
+        entrance_dist = max([float(self.getMazeDistance(myPos, e)) for e in entrances])
+
+    features['furthestEntrance'] = entrance_dist
+
     features['fleeEnemy'] = 1.0/enemy_dist
     
     return features
@@ -240,7 +249,7 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
     # actions that increase fleeEnemy mean we are getting closer to an enemy,
     # so we shouldn't choose that action as often. When total food is running low,
     # agent is less likely to choose food-pursuing actions.
-    return {'successorScore': 100, 'distanceToFood': -1, 'fleeEnemy': -100.0}
+    return {'successorScore': 100, 'distanceToFood': -1, 'fleeEnemy': -100.0, 'furthestEntrance': -100}
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
@@ -257,6 +266,9 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
     myState = successor.getAgentState(self.index)
     myPos = myState.getPosition()
+
+    if myPos[0] == 30:
+      features['inHome'] = 1
 
     # Computes whether we're on defense (1) or offense (0)
     features['onDefense'] = 1
@@ -285,4 +297,4 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2, 'stayNearPOI': -2}
+    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -1, 'stop': -100, 'reverse': -2, 'stayNearPOI': -1, 'inHome': -100}
