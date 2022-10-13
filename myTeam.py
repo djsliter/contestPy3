@@ -219,14 +219,12 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
       if len(chasers) > 0:
         # Find the closest distance chaser to the agent
         enemy_dist = min([float(self.getMazeDistance(myPos, c.getPosition())) for c in chasers])
-    # Store the feature under fleeEnemy as the inverse of close_dist
     
     # IDEA: simulate some potential enemy paths, and avoid
     # If our action is on a potential enemy path
       # If enemy gets further away after action, increase feature
       # If closer, decrease feature
-    # if( enemy_dist < (distToHome/2)):
-    #   features['fleeEnemy'] = 1.0/enemy_dist
+    
     # NOTE: enemy state is hidden from us if they are outside agent "sight" range, line 290 in capture.py
     else:
       opp_fut_state = [successor.getAgentState(i) for i in self.getOpponents(successor)]
@@ -235,8 +233,9 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
         entrances = [(16, 3), (16, 7), (16, 13)]
         entrance_dist = max([float(self.getMazeDistance(myPos, e)) for e in entrances])
 
+    # A
     features['furthestEntrance'] = entrance_dist
-
+    # Store the feature under fleeEnemy as the inverse of enemy_dist
     features['fleeEnemy'] = 1.0/enemy_dist
     
     return features
@@ -267,6 +266,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     myState = successor.getAgentState(self.index)
     myPos = myState.getPosition()
 
+    # See if agent is on home side
     if myPos[0] == 30:
       features['inHome'] = 1
 
@@ -276,12 +276,17 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
     # Computes distance to invaders we can see
     enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+    # Generate list of enemy pacman that we can see
     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+    # Add number of invaders as a feature
     features['numInvaders'] = len(invaders)
     if len(invaders) > 0:
+      # Make list of distances of visible enemy invaders
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+      # Add closest distance enemy as feature
       features['invaderDistance'] = min(dists)
     else:
+      # Set points of interest for defense based on which team we are
       if self.isRed:
         pointsOfInterest = [(10, 3), (12, 6), (12, 12)]
         distsFromPoints = [self.getMazeDistance(myPos, p) for p in pointsOfInterest]
@@ -290,7 +295,9 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         pointsOfInterest = [(20, 11), (18, 7), (18, 3)]
         distsFromPoints = [self.getMazeDistance(myPos, p) for p in pointsOfInterest]
         features['stayNearPOI'] = min(distsFromPoints)
+    
     if action == Directions.STOP: features['stop'] = 1
+    # Calculate the opposite direction of current action and add feature
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
 
