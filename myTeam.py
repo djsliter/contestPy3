@@ -269,7 +269,10 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
         opp_fut_state = [successor.getAgentState(i) for i in self.getOpponents(successor)]
         chasers = [p for p in opp_fut_state if p.getPosition() != None and not p.isPacman]
         if len(chasers) > 0:
-          entrances = [(16, 3), (16, 7), (16, 13)]
+          if self.isRed:
+            entrances = [(10, 3), (12, 6), (12, 12)]
+          else:
+            entrances = [(20, 14), (20, 6), (20, 2)]
           entrance_dist = max([float(self.getMazeDistance(myPos, e)) for e in entrances])
 
       # A
