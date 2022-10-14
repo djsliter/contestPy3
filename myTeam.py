@@ -182,61 +182,100 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
     # Agent position after action
     myPos = myState.getPosition()
 
-    # List of edible food
-    foodList = self.getFood(successor).asList() 
-    # Set a feature, successorScore, as the negation of remaining food   
-    features['successorScore'] = -len(foodList)
+    if self.getScore(successor) > 5:
+      # if team is winning by decent amount then it switches to defensive agent
+      # See if agent is on home side
+      if myPos[0] == 30:
+        features['inHome'] = 1
 
-    # Compute distance to the nearest food
-    if len(foodList) > 0: # This should always be True,  but better safe than sorry
-      # Store the distance of the closest food
-      minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
-      # Add this distance as a feature
-      features['distanceToFood'] = minDistance
+      # Computes whether we're on defense (1) or offense (0)
+      features['onDefense'] = 1
+      if myState.isPacman: features['onDefense'] = 0
 
-    # Determine if the enemy is closer to you than they were last time
-    # and you are in their territory.
-    # Note: This behavior isn't perfect, and can force Pacman to cower 
-    # in a corner.  I leave it up to you to improve this behavior.
-    
+      # Computes distance to invaders we can see
+      enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+      # Generate list of enemy pacman that we can see
+      invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+      # Add number of invaders as a feature
+      features['numInvaders'] = len(invaders)
+      if len(invaders) > 0:
+        # Make list of distances of visible enemy invaders
+        dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+        # Add closest distance enemy as feature
+        features['invaderDistance'] = min(dists)
+      else:
+        # Set points of interest for defense based on which team we are
+        if self.isRed:
+          pointsOfInterest = [(10, 3), (12, 6), (12, 12)]
+          distsFromPoints = [self.getMazeDistance(myPos, p) for p in pointsOfInterest]
+          features['stayNearPOI'] = max(distsFromPoints)
+        else:
+          pointsOfInterest = [(20, 11), (18, 7), (18, 3)]
+          distsFromPoints = [self.getMazeDistance(myPos, p) for p in pointsOfInterest]
+          features['stayNearPOI'] = max(distsFromPoints)
+      
+      if action == Directions.STOP: features['stop'] = 1
+      # Calculate the opposite direction of current action and add feature
+      rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
+      if action == rev: features['reverse'] = 1
 
-    distToHome = self.getMazeDistance(self.start, gameState.getAgentState(self.index).getPosition())
+    # if team is not winning by enough it uses this offense agent
+    else:
+      # List of edible food
+      foodList = self.getFood(successor).asList() 
+      # Set a feature, successorScore, as the negation of remaining food   
+      features['successorScore'] = -len(foodList)
 
-    enemy_dist = 9999.0
-    entrance_dist = 9999.0
-    # If our agent is in Pacman form
-    if gameState.getAgentState(self.index).isPacman:
-      # Generate a list of enemies future states after action is taken
-      opp_fut_state = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+      # Compute distance to the nearest food
+      if len(foodList) > 0: # This should always be True,  but better safe than sorry
+        # Store the distance of the closest food
+        minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+        # Add this distance as a feature
+        features['distanceToFood'] = minDistance
+
+      # Determine if the enemy is closer to you than they were last time
+      # and you are in their territory.
+      # Note: This behavior isn't perfect, and can force Pacman to cower 
+      # in a corner.  I leave it up to you to improve this behavior.
       
 
-      # print("TEST-------------------")
-      # print(gameState.getLegalActions(([i for i in self.getOpponents(successor)][0])))
+      distToHome = self.getMazeDistance(self.start, gameState.getAgentState(self.index).getPosition())
 
-      # Grab the enemies that are currently ghosts and are alive
-      chasers = [p for p in opp_fut_state if p.getPosition() != None and not p.isPacman]
-      # If there are potential enemy chasers
-      if len(chasers) > 0:
-        # Find the closest distance chaser to the agent
-        enemy_dist = min([float(self.getMazeDistance(myPos, c.getPosition())) for c in chasers])
-    
-    # IDEA: simulate some potential enemy paths, and avoid
-    # If our action is on a potential enemy path
-      # If enemy gets further away after action, increase feature
-      # If closer, decrease feature
-    
-    # NOTE: enemy state is hidden from us if they are outside agent "sight" range, line 290 in capture.py
-    else:
-      opp_fut_state = [successor.getAgentState(i) for i in self.getOpponents(successor)]
-      chasers = [p for p in opp_fut_state if p.getPosition() != None and not p.isPacman]
-      if len(chasers) > 0:
-        entrances = [(16, 3), (16, 7), (16, 13)]
-        entrance_dist = max([float(self.getMazeDistance(myPos, e)) for e in entrances])
+      enemy_dist = 9999.0
+      entrance_dist = 9999.0
+      # If our agent is in Pacman form
+      if gameState.getAgentState(self.index).isPacman:
+        # Generate a list of enemies future states after action is taken
+        opp_fut_state = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+        
 
-    # A
-    features['furthestEntrance'] = entrance_dist
-    # Store the feature under fleeEnemy as the inverse of enemy_dist
-    features['fleeEnemy'] = 1.0/enemy_dist
+        # print("TEST-------------------")
+        # print(gameState.getLegalActions(([i for i in self.getOpponents(successor)][0])))
+
+        # Grab the enemies that are currently ghosts and are alive
+        chasers = [p for p in opp_fut_state if p.getPosition() != None and not p.isPacman]
+        # If there are potential enemy chasers
+        if len(chasers) > 0:
+          # Find the closest distance chaser to the agent
+          enemy_dist = min([float(self.getMazeDistance(myPos, c.getPosition())) for c in chasers])
+      
+      # IDEA: simulate some potential enemy paths, and avoid
+      # If our action is on a potential enemy path
+        # If enemy gets further away after action, increase feature
+        # If closer, decrease feature
+      
+      # NOTE: enemy state is hidden from us if they are outside agent "sight" range, line 290 in capture.py
+      else:
+        opp_fut_state = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+        chasers = [p for p in opp_fut_state if p.getPosition() != None and not p.isPacman]
+        if len(chasers) > 0:
+          entrances = [(16, 3), (16, 7), (16, 13)]
+          entrance_dist = max([float(self.getMazeDistance(myPos, e)) for e in entrances])
+
+      # A
+      features['furthestEntrance'] = entrance_dist
+      # Store the feature under fleeEnemy as the inverse of enemy_dist
+      features['fleeEnemy'] = 1.0/enemy_dist
     
     return features
   
@@ -248,7 +287,11 @@ class CarefulOffenseAgent(ReflexCaptureAgent):
     # actions that increase fleeEnemy mean we are getting closer to an enemy,
     # so we shouldn't choose that action as often. When total food is running low,
     # agent is less likely to choose food-pursuing actions.
-    return {'successorScore': 100, 'distanceToFood': -1, 'fleeEnemy': -100.0, 'furthestEntrance': -100}
+    successor = self.getSuccessor(gameState, action)
+    if self.getScore(successor) > 5:
+      return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -1, 'stop': -100, 'reverse': -2, 'stayNearPOI': -0.5, 'inHome': -100}
+    else:
+      return {'successorScore': 100, 'distanceToFood': -1, 'fleeEnemy': -100.0, 'furthestEntrance': -100}
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
